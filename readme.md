@@ -35,6 +35,7 @@ cd grok2api
 docker compose up -d
 ```
 
+<<<<<<< Updated upstream
 > Docker Compose 端口变量：
 >
 > - `SERVER_PORT`：容器内应用监听端口
@@ -79,6 +80,16 @@ docker compose up -d
 <br>
 
 ## 环境变量
+=======
+### 管理面板
+ 
+ 访问地址：`http://<host>:8000/admin`
+ 默认登录密码：`grok2api`（对应配置项 `app.app_key`，建议修改）。
+ 
+ **详细使用说明请参考：** [管理面板使用指南 (Admin Guide)](docs/admin.md)
+ 
+ ### 环境变量
+>>>>>>> Stashed changes
 
 > 配置 `.env` 文件
 
@@ -378,6 +389,110 @@ curl http://localhost:8000/v1/videos \
 
 <br>
 
+### `POST /v1/videos`
+
+> 视频生成异步任务接口
+
+### 3.1 创建视频生成任务
+
+```bash
+curl http://localhost:8000/v1/videos \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-sllt" \
+  -d '{
+    "model": "grok-imagine-1.0-video",
+    "prompt": "一只在草地上奔跑的猫",
+    "aspect_ratio": "16:9",
+    "video_length": 6
+  }'
+```
+
+curl.exe http://45.207.200.12:8088/v1/videos `  -H "Content-Type: application/json" `  -H "Authorization: Bearer sk-sllt" `  -d '{\"model\": \"grok-imagine-1.0-video\", \"prompt\": \"一只在草地上奔跑的猫\", \"aspect_ratio\": \"16:9\", \"video_length\": 6}'
+
+### 3.2 查询任务状态
+
+```bash
+curl http://localhost:8000/v1/videos/{task_id} \
+  -H "Authorization: Bearer sk-sllt"
+```
+curl.exe http://45.207.200.12:8088/v1/videos/generations/task_fc300baaa870 `  -H "Authorization: Bearer sk-sllt"
+
+<details>
+<summary>支持的请求参数</summary>
+
+<br>
+
+| 字段           | 类型    | 说明           | 可用参数                              |
+| :------------- | :------ | :------------- | :------------------------------------ |
+| `model`        | string  | 视频模型名     | `grok-video-1.0`                      |
+| `prompt`       | string  | 视频描述提示词 | -                                     |
+| `aspect_ratio` | string  | 视频宽高比     | `16:9`, `9:16`, `1:1`, `2:3`, `3:2`   |
+| `video_length` | integer | 视频时长 (秒)  | `6`, `10`, `15`                       |
+| `resolution`   | string  | 分辨率         | `480p`, `720p`                        |
+| `preset`       | string  | 风格预设       | `normal`, `fun`, `spicy`              |
+
+**响应示例**：
+
+```json
+{
+  "task_id": "task_abc123def456",
+  "status": "pending",
+  "created_at": 1707364400
+}
+```
+
+<br>
+
+</details>
+
+### `GET /v1/videos/generations/{task_id}`
+
+> 视频生成异步任务接口 - 查询状态
+
+```bash
+curl http://localhost:8000/v1/videos/generations/task_abc123def456 \
+  -H "Authorization: Bearer $GROK2API_API_KEY"
+```
+
+<details>
+<summary>响应格式说明</summary>
+
+<br>
+
+| 字段        | 类型    | 说明                                   |
+| :---------- | :------ | :------------------------------------- |
+| `task_id`   | string  | 任务 ID                                |
+| `status`    | string  | 状态: `pending`, `processing`, `completed`, `failed` |
+| `progress`  | integer | 进度百分比 (仅 `processing` 状态返回)  |
+| `video_url` | string  | 视频 URL (仅 `completed` 状态返回)     |
+| `error`     | string  | 错误信息 (仅 `failed` 状态返回)        |
+
+**响应示例（进行中）**：
+
+```json
+{
+  "task_id": "task_abc123def456",
+  "status": "processing",
+  "progress": 50
+}
+```
+
+**响应示例（已完成）**：
+
+```json
+{
+  "task_id": "task_abc123def456",
+  "status": "completed",
+  "video_url": "https://xxx.r2.dev/grok2api/video/xxx.mp4"
+}
+```
+
+<br>
+
+</details>
+
+<br>
+
 ## 参数配置
 
 配置文件：`data/config.toml`
@@ -390,6 +505,7 @@ curl http://localhost:8000/v1/videos \
 > **v2.0 配置结构升级**：旧版本用户更新后，配置会**自动迁移**到新结构，无需手动修改。
 > 旧的 `[grok]` 配置节中的自定义值会自动映射到对应的新配置节。
 
+<<<<<<< Updated upstream
 | 模块 | 字段 | 配置名 | 说明 | 默认值 |
 | :-- | :-- | :-- | :-- | :-- |
 | **app** | `app_url` | 应用地址 | 当前 Grok2API 服务的外部访问 URL，用于文件链接访问。 | `""` |
@@ -469,6 +585,66 @@ curl http://localhost:8000/v1/videos \
 | **usage** | `concurrent` | 并发上限 | 批量刷新用量时的并发请求上限。 | `100` |
 |  | `batch_size` | 批次大小 | 批量刷新用量的单批处理数量。 | `50` |
 |  | `timeout` | 请求超时 | 用量查询接口的超时时间（秒）。 | `60` |
+=======
+| 模块                  | 字段                         | 配置名       | 说明                                                 | 默认值                                                    |
+| :-------------------- | :--------------------------- | :----------- | :--------------------------------------------------- | :-------------------------------------------------------- |
+| **app**         | `app_url`                  | 应用地址     | 当前 Grok2API 服务的外部访问 URL，用于文件链接访问。 | `http://127.0.0.1:8000`                                 |
+|                       | `app_key`                  | 后台密码     | 登录 Grok2API 管理后台的密码（必填）。               | `grok2api`                                              |
+|                       | `api_key`                  | API 密钥     | 调用 Grok2API 服务的 Token（可选）。 | `""`                                    |
+|                       | `image_format`             | 图片格式     | 生成的图片格式（url 或 base64）。                    | `url`                                                   |
+|                       | `video_format`             | 视频格式     | 生成的视频格式（html 或 url，url 为处理后的链接）。  | `html`                                                  |
+| **network**     | `timeout`                  | 请求超时     | 请求 Grok 服务的超时时间（秒）。                     | `120`                                                   |
+|                       | `base_proxy_url`           | 基础代理 URL | 代理请求到 Grok 官网的基础服务地址。                 | `""`                                                    |
+|                       | `asset_proxy_url`          | 资源代理 URL | 代理请求到 Grok 官网的静态资源（图片/视频）地址。    | `""`                                                    |
+| **security**    | `cf_clearance`             | CF Clearance | Cloudflare 验证 Cookie，用于绕过反爬虫验证。         | `""`                                                    |
+|                       | `browser`                  | 浏览器指纹   | curl_cffi 浏览器指纹标识（如 chrome136）。           | `chrome136`                                             |
+|                       | `user_agent`               | User-Agent   | HTTP 请求的 User-Agent 字符串。                      | `Mozilla/5.0 (Macintosh; ...)` |
+| **chat**        | `temporary`                | 临时对话     | 是否启用临时对话模式。                               | `true`                                                  |
+|                       | `disable_memory`           | 禁用记忆     | 禁用 Grok 记忆功能，防止响应中出现不相关上下文。     | `true`                                                  |
+|                       | `stream`                   | 流式响应     | 是否默认启用流式输出。                               | `true`                                                  |
+|                       | `thinking`                 | 思维链       | 是否启用模型思维链输出。                             | `true`                                                  |
+|                       | `dynamic_statsig`          | 动态指纹     | 是否启用动态生成 Statsig 值。                        | `true`                                                  |
+|                       | `filter_tags`              | 过滤标签     | 自动过滤 Grok 响应中的特殊标签。                     | `["xaiartifact", "xai:tool_usage_card", "grok:render"]` |
+| **retry**       | `max_retry`                | 最大重试     | 请求 Grok 服务失败时的最大重试次数。                 | `3`                                                     |
+|                       | `retry_status_codes`       | 重试状态码   | 触发重试的 HTTP 状态码列表。                         | `[401, 429, 403]`                                       |
+|                       | `retry_backoff_base`       | 退避基数     | 重试退避的基础延迟（秒）。                           | `0.5`                                                   |
+|                       | `retry_backoff_factor`     | 退避倍率     | 重试退避的指数放大系数。                             | `2.0`                                                   |
+|                       | `retry_backoff_max`        | 退避上限     | 单次重试等待的最大延迟（秒）。                       | `30.0`                                                  |
+|                       | `retry_budget`             | 退避预算     | 单次请求的最大重试总耗时（秒）。                     | `90.0`                                                  |
+| **timeout**     | `stream_idle_timeout`      | 流空闲超时   | 流式响应空闲超时（秒），超过将断开。                 | `120.0`                                                 |
+|                       | `video_idle_timeout`       | 视频空闲超时 | 视频生成空闲超时（秒），超过将断开。                 | `90.0`                                                  |
+| **image**       | `image_ws`                 | WebSocket 生成 | 启用后 `/v1/images/generations` 走 WebSocket 直连。| `true`                                                  |
+|                       | `image_ws_nsfw`            | NSFW 模式    | WebSocket 请求是否启用 NSFW。                        | `true`                                                  |
+|                       | `image_ws_blocked_seconds` | Blocked 阈值 | 收到中等图后超过该秒数仍无最终图则判定 blocked。     | `15`                                                    |
+|                       | `image_ws_final_min_bytes` | 最终图最小字节 | 判定最终图的最小字节数（通常 JPG > 100KB）。      | `100000`                                                |
+|                       | `image_ws_medium_min_bytes`| 中等图最小字节 | 判定中等质量图的最小字节数。                       | `30000`                                                 |
+| **token**       | `auto_refresh`             | 自动刷新     | 是否开启 Token 自动刷新机制。                        | `true`                                                  |
+|                       | `refresh_interval_hours`   | 刷新间隔     | 普通 Token 刷新的时间间隔（小时）。                  | `8`                                                     |
+|                       | `super_refresh_interval_hours` | Super 刷新间隔 | Super Token 刷新的时间间隔（小时）。              | `2`                                                     |
+|                       | `fail_threshold`           | 失败阈值     | 单个 Token 连续失败多少次后被标记为不可用。          | `5`                                                     |
+|                       | `save_delay_ms`            | 保存延迟     | Token 变更合并写入的延迟（毫秒）。                   | `500`                                                   |
+|                       | `reload_interval_sec`      | 同步间隔     | 多 worker 场景下 Token 状态刷新间隔（秒）。          | `30`                                                    |
+| **cache**       | `enable_auto_clean`        | 自动清理     | 是否启用缓存自动清理，开启后按上限自动回收。         | `true`                                                  |
+|                       | `limit_mb`                 | 清理阈值     | 缓存大小阈值（MB），超过阈值会触发清理。             | `1024`                                                  |
+| **performance** | `media_max_concurrent`     | Media 并发上限 | 视频/媒体生成请求的并发上限。推荐 50。             | `50`                                                    |
+|                       | `assets_max_concurrent`    | Assets 并发上限 | 批量查找/删除资产时的并发请求上限。推荐 25。       | `25`                                                   |
+|                       | `assets_batch_size`        | Assets 批次大小 | 批量查找/删除资产时的单批处理数量。推荐 10。      | `10`                                                   |
+|                       | `assets_max_tokens`        | Assets 最大数量 | 单次批量查找/删除资产时的处理数量上限。推荐 1000。 | `1000`                                                 |
+|                       | `assets_delete_batch_size` | Assets 删除批量 | 单账号批量删除资产时的单批并发数量。推荐 10。     | `10`                                                   |
+|                       | `usage_max_concurrent`     | Token 刷新并发上限 | 批量刷新 Token 用量时的并发请求上限。推荐 25。    | `25`                                                   |
+|                       | `usage_batch_size`         | Token 刷新批次大小 | 批量刷新 Token 用量的单批处理数量。推荐 50。      | `50`                                                   |
+|                       | `usage_max_tokens`         | Token 刷新最大数量 | 单次批量刷新 Token 用量时的处理数量上限。推荐 1000。| `1000`                                                 |
+|                       | `nsfw_max_concurrent`      | NSFW 开启并发上限 | 批量开启 NSFW 模式时的并发请求上限。推荐 10。      | `10`                                                   |
+|                       | `nsfw_batch_size`          | NSFW 开启批次大小 | 批量开启 NSFW 模式的单批处理数量。推荐 50。        | `50`                                                   |
+|                       | `nsfw_max_tokens`          | NSFW 开启最大数量 | 单次批量开启 NSFW 的 Token 数量上限。推荐 1000。   | `1000`                                            |
+| **r2**          | `enabled`                  | 启用 R2      | 是否启用 Cloudflare R2 云存储。                    | `false`                                                 |
+|                       | `account_id`               | Account ID   | Cloudflare Account ID。                            | `""`                                                    |
+|                       | `access_key_id`            | Access Key   | R2 API Access Key ID。                             | `""`                                                    |
+|                       | `secret_access_key`        | Secret Key   | R2 API Secret Access Key。                         | `""`                                                    |
+|                       | `bucket_name`              | Bucket 名称  | R2 Bucket 名称。                                   | `""`                                                    |
+|                       | `public_url`               | 公开 URL     | R2 公开访问 URL（如 `https://xxx.r2.dev`）。       | `""`                                                    |
+|                       | `path_prefix`              | 路径前缀     | 存储路径前缀。                                     | `grok2api`                                              |
+>>>>>>> Stashed changes
 
 <br>
 

@@ -159,6 +159,18 @@ class BaseStorage(abc.ABC):
         """关闭资源"""
         pass
 
+    async def load_video_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """加载视频任务"""
+        raise NotImplementedError
+
+    async def save_video_task(self, task_id: str, data: Dict[str, Any]):
+        """保存视频任务"""
+        raise NotImplementedError
+
+    async def cleanup_expired_video_tasks(self, expiry: int):
+        """清理过期任务"""
+        raise NotImplementedError
+
     @asynccontextmanager
     async def acquire_lock(self, name: str, timeout: int = 10):
         """
@@ -187,6 +199,23 @@ class LocalStorage(BaseStorage):
 
     def __init__(self):
         self._lock = asyncio.Lock()
+        self._video_tasks: Dict[str, Any] = {}  # 内存临时存储
+
+    async def load_video_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        return self._video_tasks.get(task_id)
+
+    async def save_video_task(self, task_id: str, data: Dict[str, Any]):
+        self._video_tasks[task_id] = data
+
+    async def cleanup_expired_video_tasks(self, expiry: int):
+        now = int(time.time())
+        expired = [
+            tid
+            for tid, task in self._video_tasks.items()
+            if now - task.get("updated_at", 0) > expiry
+        ]
+        for tid in expired:
+            del self._video_tasks[tid]
 
     @asynccontextmanager
     async def acquire_lock(self, name: str, timeout: int = 10):
@@ -337,7 +366,45 @@ class RedisStorage(BaseStorage):
         self.key_pools = "grok2api:pools"  # Set: pool_names
         self.prefix_pool_set = "grok2api:pool:"  # Set: pool -> token_ids
         self.prefix_token_hash = "grok2api:token:"  # Hash: token_id -> token_data
+        self.prefix_video_task = "grok2api:video_task:"  # Hash: task_id -> task_data
         self.lock_prefix = "grok2api:lock:"
+
+    async def load_video_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            key = f"{self.prefix_video_task}{task_id}"
+            data = await self.redis.hgetall(key)
+            if not data:
+                return None
+            
+            # 类型转换
+            for int_field in ["created_at", "updated_at", "progress", "video_length"]:
+                if data.get(int_field):
+                    try:
+                        data[int_field] = int(data[int_field])
+                    except ValueError:
+                        pass
+            return data
+        except Exception as e:
+            logger.error(f"RedisStorage: 加载视频任务失败: {e}")
+            return None
+
+    async def save_video_task(self, task_id: str, data: Dict[str, Any]):
+        try:
+            key = f"{self.prefix_video_task}{task_id}"
+            # 转换值为字符串
+            mapping = {k: str(v) for k, v in data.items() if v is not None}
+            async with self.redis.pipeline() as pipe:
+                pipe.hset(key, mapping=mapping)
+                # 设置过期时间 24小时
+                pipe.expire(key, 86400)
+                await pipe.execute()
+        except Exception as e:
+            logger.error(f"RedisStorage: 保存视频任务失败: {e}")
+            raise
+
+    async def cleanup_expired_video_tasks(self, expiry: int):
+        # Redis 有自动过期机制，这里不需要手动清理
+        pass
 
     @asynccontextmanager
     async def acquire_lock(self, name: str, timeout: int = 10):
@@ -653,6 +720,25 @@ class SQLStorage(BaseStorage):
                     )
                 """)
                 )
+                
+                # 视频任务表
+                await conn.execute(
+                    text("""
+                    CREATE TABLE IF NOT EXISTS video_tasks (
+                        task_id VARCHAR(64) PRIMARY KEY,
+                        status VARCHAR(32),
+                        token VARCHAR(512),
+                        model VARCHAR(64),
+                        prompt TEXT,
+                        progress INT,
+                        video_url TEXT,
+                        error TEXT,
+                        created_at BIGINT,
+                        updated_at BIGINT,
+                        data TEXT
+                    )
+                """)
+                )
 
                 # 索引
                 if self.dialect in ("postgres", "postgresql", "pgsql"):
@@ -661,6 +747,7 @@ class SQLStorage(BaseStorage):
                             "CREATE INDEX IF NOT EXISTS idx_tokens_pool ON tokens (pool_name)"
                         )
                     )
+<<<<<<< Updated upstream
                 else:
                     try:
                         await conn.execute(
@@ -704,6 +791,13 @@ class SQLStorage(BaseStorage):
                             )
                         except Exception:
                             pass
+=======
+                    await conn.execute(
+                        text("CREATE INDEX idx_video_tasks_updated ON video_tasks (updated_at)")
+                    )
+                except Exception:
+                    pass
+>>>>>>> Stashed changes
 
                 # 尝试兼容旧表结构
                 try:
@@ -730,6 +824,7 @@ class SQLStorage(BaseStorage):
             logger.error(f"SQLStorage: Schema 初始化失败: {e}")
             raise
 
+<<<<<<< Updated upstream
     def _normalize_status(self, status: Any) -> Any:
         if isinstance(status, str) and status.startswith("TokenStatus."):
             return status.split(".", 1)[1].lower()
@@ -878,6 +973,135 @@ class SQLStorage(BaseStorage):
                 await session.commit()
         except Exception as e:
             logger.warning(f"SQLStorage: 旧数据回填失败: {e}")
+=======
+    async def load_video_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        await self._ensure_schema()
+        from sqlalchemy import text
+        try:
+            async with self.async_session() as session:
+                res = await session.execute(
+                    text("SELECT * FROM video_tasks WHERE task_id = :tid"),
+                    {"tid": task_id}
+                )
+                row = res.mappings().fetchone()
+                if not row:
+                    return None
+                
+                # 构造字典
+                data = dict(row)
+                
+                # 恢复额外数据
+                if data.get("data"):
+                    try:
+                        extra_data = json_loads(data["data"])
+                        data.update(extra_data)
+                    except Exception:
+                        pass
+                del data["data"]
+                
+                return data
+        except Exception as e:
+            logger.error(f"SQLStorage: 加载视频任务失败: {e}")
+            return None
+
+    async def save_video_task(self, task_id: str, data: Dict[str, Any]):
+        await self._ensure_schema()
+        from sqlalchemy import text
+        try:
+            # 提取主要字段
+            task_id = data.get("task_id", task_id)
+            status = data.get("status")
+            token = data.get("token")
+            model = data.get("model")
+            prompt = data.get("prompt")
+            progress = data.get("progress")
+            video_url = data.get("video_url")
+            error = data.get("error")
+            created_at = data.get("created_at")
+            updated_at = data.get("updated_at")
+            
+            # 剩余字段存入 data
+            extra_fields = {
+                k: v for k, v in data.items() 
+                if k not in [
+                    "task_id", "status", "token", "model", "prompt", 
+                    "progress", "video_url", "error", "created_at", "updated_at"
+                ]
+            }
+            extra_json = json_dumps(extra_fields)
+            
+            async with self.async_session() as session:
+                # Upsert (MySQL: INSERT ... ON DUPLICATE KEY UPDATE)
+                if self.dialect in ("mysql", "mariadb"):
+                    sql = """
+                        INSERT INTO video_tasks (
+                            task_id, status, token, model, prompt, progress, 
+                            video_url, error, created_at, updated_at, data
+                        ) VALUES (
+                            :task_id, :status, :token, :model, :prompt, :progress,
+                            :video_url, :error, :created_at, :updated_at, :data
+                        )
+                        ON DUPLICATE KEY UPDATE
+                            status=VALUES(status),
+                            progress=VALUES(progress),
+                            video_url=VALUES(video_url),
+                            error=VALUES(error),
+                            updated_at=VALUES(updated_at),
+                            data=VALUES(data)
+                    """
+                else:
+                    # PGSQL / SQLite: Delete + Insert
+                    await session.execute(
+                        text("DELETE FROM video_tasks WHERE task_id = :tid"),
+                        {"tid": task_id}
+                    )
+                    sql = """
+                        INSERT INTO video_tasks (
+                            task_id, status, token, model, prompt, progress, 
+                            video_url, error, created_at, updated_at, data
+                        ) VALUES (
+                            :task_id, :status, :token, :model, :prompt, :progress,
+                            :video_url, :error, :created_at, :updated_at, :data
+                        )
+                    """
+                
+                await session.execute(
+                    text(sql),
+                    {
+                        "task_id": task_id,
+                        "status": status,
+                        "token": token,
+                        "model": model,
+                        "prompt": prompt,
+                        "progress": progress,
+                        "video_url": video_url,
+                        "error": error,
+                        "created_at": created_at,
+                        "updated_at": updated_at,
+                        "data": extra_json
+                    }
+                )
+                await session.commit()
+                
+        except Exception as e:
+            logger.error(f"SQLStorage: 保存视频任务失败: {e}")
+            raise
+
+    async def cleanup_expired_video_tasks(self, expiry: int):
+        await self._ensure_schema()
+        from sqlalchemy import text
+        try:
+            now = int(time.time())
+            cutoff = now - expiry
+            async with self.async_session() as session:
+                await session.execute(
+                    text("DELETE FROM video_tasks WHERE updated_at < :cutoff"),
+                    {"cutoff": cutoff}
+                )
+                await session.commit()
+        except Exception as e:
+            logger.error(f"SQLStorage: 清理过期任务失败: {e}")
+>>>>>>> Stashed changes
 
     @asynccontextmanager
     async def acquire_lock(self, name: str, timeout: int = 10):

@@ -359,6 +359,13 @@ class Config:
         if "." in key:
             try:
                 section, attr = key.split(".", 1)
+                # 特殊处理：支持环境变量覆盖 license_secret
+                if section == "app" and attr == "license_secret":
+                    import os
+                    env_val = os.getenv("LICENSE_SECRET")
+                    if env_val:
+                        return env_val
+                        
                 return self._config.get(section, {}).get(attr, default)
             except (ValueError, AttributeError):
                 return default

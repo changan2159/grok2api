@@ -1,8 +1,9 @@
 services:
   grok2api:
-    container_name: grok2api
-    image: ghcr.io/chenyme/grok2api:latest
+    container_name: grokapi
+    image: sllt88/grok2api:latest
     ports:
+<<<<<<< Updated upstream
       - "${HOST_PORT:-8000}:${SERVER_PORT:-8000}"
     environment:
       TZ: Asia/Shanghai
@@ -28,10 +29,23 @@ services:
       - >
         granian --interface asgi --host "$${SERVER_HOST:-0.0.0.0}"
         --port "$${SERVER_PORT:-8000}" --workers "$${SERVER_WORKERS:-1}" main:app
+=======
+      - "8088:8000"
+    environment:
+      TZ: Asia/Shanghai
+      LOG_LEVEL: INFO
+      SERVER_PORT: 8000
+      SERVER_PORT: 8000
+      SERVER_WORKERS: 1
+      SERVER_STORAGE_TYPE: mysql
+      SERVER_STORAGE_URL: mysql+asyncmy://grok:grok@db:3306/grok_db
+      PUBLIC_IP: 45.207.200.12 # 请修改为您服务器的公网IP，与许可证一致
+>>>>>>> Stashed changes
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
     restart: unless-stopped
+<<<<<<< Updated upstream
 
   # 如果出口 IP 不干净，可取消以下注释使用 Warp 作为落地代理
   # 启用后将 proxy.base_proxy_url 设为 socks5://warp:1080
@@ -56,3 +70,31 @@ services:
   #     TZ: Asia/Shanghai
   #     LOG_LEVEL: info
   #   restart: unless-stopped
+=======
+    depends_on:
+      - db
+    networks:
+      - grok_net
+
+  db:
+    image: mysql:8.0
+    container_name: grok_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_changeme
+      MYSQL_DATABASE: grok_db
+      MYSQL_USER: grok
+      MYSQL_PASSWORD: grok
+      TZ: Asia/Shanghai
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    # 仅容器内网访问，不映射端口到宿主机
+    expose:
+      - "3306"
+    restart: unless-stopped
+    networks:
+      - grok_net
+
+networks:
+  grok_net:
+    driver: bridge
+>>>>>>> Stashed changes

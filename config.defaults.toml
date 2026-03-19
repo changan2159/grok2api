@@ -14,6 +14,7 @@ function_key = ""
 image_format = "url"
 # 生成视频的格式（html 或 url）
 video_format = "html"
+<<<<<<< Updated upstream
 # 是否启用临时对话模式
 temporary = true
 # 是否禁用 Grok 记忆功能
@@ -28,6 +29,12 @@ dynamic_statsig = true
 custom_instruction = ""
 # 过滤的特殊标签列表
 filter_tags = ["xaiartifact","xai:tool_usage_card","grok:render"]
+=======
+# 应用授权许可密钥
+license_key = ""
+# 应用授权许可加密秘钥（用于生成和验证许可证，请修改此值并妥善保管）
+license_secret = "change_me_to_a_random_string_for_security"
+>>>>>>> Stashed changes
 
 
 # ==================== 代理配置 ====================
@@ -190,6 +197,7 @@ delete_batch_size = 50
 # NSFW 批量开启并发上限
 concurrent = 60
 # NSFW 批量开启批次大小
+<<<<<<< Updated upstream
 batch_size = 30
 # NSFW 请求超时时间（秒）
 timeout = 60
@@ -202,3 +210,46 @@ concurrent = 100
 batch_size = 50
 # Usage 请求超时时间（秒）
 timeout = 60
+=======
+nsfw_batch_size = 50
+# NSFW 单次最大数量
+nsfw_max_tokens = 1000
+
+
+# ==================== R2 云存储 ====================
+[r2]
+# 是否启用 R2 云存储
+enabled = false
+# 存储提供商 (r2 / aliyun / s3)
+provider = "r2"
+# Cloudflare Account ID
+account_id = ""
+# R2 Access Key ID
+access_key_id = ""
+# R2 Secret Access Key
+secret_access_key = ""
+# R2 Bucket 名称
+bucket_name = ""
+# R2 公开访问 URL（如 https://your-bucket.r2.dev）
+public_url = ""
+# 自定义 S3 Endpoint URL (用于支持 Aliyun OSS/AWS S3 等其他 S3 兼容存储，设置后 R2 Account ID 将失效)
+endpoint_url = ""
+# 存储路径前缀
+path_prefix = "grok2api"
+
+[aliyun]
+endpoint_url = "https://oss-cn-hangzhou.aliyuncs.com"
+access_key_id = ""
+secret_access_key = ""
+bucket_name = ""
+public_url = ""
+path_prefix = "grok2api"
+
+[s3]
+endpoint_url = ""
+access_key_id = ""
+secret_access_key = ""
+bucket_name = ""
+public_url = ""
+path_prefix = "grok2api"
+>>>>>>> Stashed changes

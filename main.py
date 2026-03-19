@@ -77,6 +77,7 @@ async def lifespan(app: FastAPI):
         scheduler = get_scheduler(interval)
         scheduler.start()
 
+<<<<<<< Updated upstream
     # 5. 启动 cf_clearance 自动刷新
     #    环境变量 FLARESOLVERR_URL 会作为初始值写入配置（兼容旧部署方式）
     _flaresolverr_env = os.getenv("FLARESOLVERR_URL", "")
@@ -92,6 +93,18 @@ async def lifespan(app: FastAPI):
 
     from app.services.cf_refresh import start as cf_refresh_start
     cf_refresh_start()
+=======
+    # 5. License 验证
+    from app.core.license import verify_license
+    if not verify_license():
+        logger.error("-" * 50)
+        logger.error("LICENSE VERIFICATION FAILED")
+        logger.error("The provided license key is invalid or does not match this server.")
+        logger.error("Please update the license key in config.toml or admin dashboard.")
+        logger.error("-" * 50)
+        # Note: We don't crash the app here to allow admin to update configuraiton via API
+        # but we should restrict user access. Implementing middleware below.
+>>>>>>> Stashed changes
 
     logger.info("Application startup complete.")
     yield
@@ -131,10 +144,49 @@ def create_app() -> FastAPI:
     # 请求日志和 ID 中间件
     app.add_middleware(ResponseLoggerMiddleware)
 
+<<<<<<< Updated upstream
     @app.middleware("http")
     async def ensure_config_loaded(request: Request, call_next):
         await config.ensure_loaded()
         return await call_next(request)
+=======
+    # License 强制验证中间件
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from fastapi.responses import JSONResponse
+    from fastapi import Request
+    from app.core.license import verify_license
+
+    class LicenseCheckMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            # Allow static files, admin config endpoints, and docs
+            path = request.url.path
+            allowed_paths = [
+                "/static", 
+                "/admin", 
+                "/api/v1/admin/config", 
+                "/api/v1/admin/login",
+                "/api/v1/admin/license",
+                "/api/v1/admin/storage",
+                "/docs", 
+                "/openapi.json"
+            ]
+            
+            is_allowed = any(path.startswith(p) for p in allowed_paths)
+            
+            if not is_allowed:
+                if not verify_license():
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "detail": "许可证无效或已过期，请联系管理员 (License Invalid or Expired)"
+                        }
+                    )
+            
+            response = await call_next(request)
+            return response
+
+    app.add_middleware(LicenseCheckMiddleware)
+>>>>>>> Stashed changes
 
     # 注册异常处理器
     register_exception_handlers(app)
@@ -157,8 +209,20 @@ def create_app() -> FastAPI:
     )
     app.include_router(files_router, prefix="/v1/files")
 
+<<<<<<< Updated upstream
     # 静态文件服务（统一使用 /_public/static）
     static_dir = PUBLIC_DIR / "static"
+=======
+    # 视频生成异步任务 API
+    from app.api.v1.video import router as video_router
+
+    app.include_router(video_router)
+
+    # 静态文件服务
+    from fastapi.staticfiles import StaticFiles
+
+    static_dir = Path(__file__).parent / "app" / "static"
+>>>>>>> Stashed changes
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 

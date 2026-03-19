@@ -132,6 +132,17 @@ async function loadData() {
       renderTable();
     } else if (res.status === 401) {
       logout();
+    } else if (res.status === 403) {
+      let msg = '许可证无效或已过期，请联系管理员';
+      try {
+        const err = await res.json();
+        if (err.detail) msg = err.detail;
+      } catch (e) { }
+      showToast(msg, 'error');
+      // Hide loading if present
+      const loading = byId('loading');
+      if (loading) loading.classList.add('hidden');
+      return;
     } else {
       throw new Error(`HTTP ${res.status}`);
     }
@@ -781,11 +792,39 @@ function closeImportModal() {
 async function submitImport() {
   const pool = byId('import-pool').value.trim() || 'ssoBasic';
   const text = byId('import-text').value;
+  const separator = byId('import-separator').value; // Don't trim separator, spaces might be significant
+  const indexInput = byId('import-index').value.trim();
+
   const lines = text.split('\n');
   const defaultQuota = getDefaultQuotaForPool(pool);
 
   lines.forEach(line => {
-    const t = line.trim();
+    let t = line.trim();
+    if (!t) return;
+
+    // Custom Separator Logic
+    if (separator) {
+      const parts = t.split(separator);
+      let targetIndex = 0; // Default to 0? Or user must specify?
+      // If user inputs separator "----" and index "2" -> works.
+
+      if (indexInput !== '') {
+        targetIndex = parseInt(indexInput, 10);
+      }
+
+      if (!isNaN(targetIndex) && targetIndex >= 0 && targetIndex < parts.length) {
+        t = parts[targetIndex].trim();
+      }
+    } else {
+      // Legacy/Auto-detect behavior
+      if (/----/.test(t)) {
+        const parts = t.split(/-{4,}/);
+        if (parts.length >= 3) {
+          t = parts[parts.length - 1].trim();
+        }
+      }
+    }
+
     if (t && !flatTokens.some(ft => ft.token === t)) {
       flatTokens.push({
         token: t,

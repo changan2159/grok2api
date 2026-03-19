@@ -27,33 +27,26 @@
 }
 
 .config-field {
-  padding-top: 2px;
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
 }
 
 .config-field-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--accents-7);
 }
 
 .config-field-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--accents-4);
-  line-height: 1.5;
+  line-height: 1.4;
+  margin-top: -4px;
 }
 
 .config-field-input {
-  margin-top: 6px;
-}
-
-.config-field.has-action {
-  padding-right: 44px;
-}
-
-.config-field-action {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  margin-top: 2px;
+  width: 100%;
 }

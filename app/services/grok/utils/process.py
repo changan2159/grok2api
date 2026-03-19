@@ -138,9 +138,24 @@ class BaseProcessor:
             self._dl_service = None
 
     async def process_url(self, path: str, media_type: str = "image") -> str:
+<<<<<<< Updated upstream:app/services/grok/utils/process.py
         """处理资产 URL"""
         dl_service = self._get_dl()
         return await dl_service.resolve_url(path, self.token, media_type)
+=======
+        """处理资产 URL，支持 R2 云存储"""
+        if path.startswith("http"):
+            from urllib.parse import urlparse
+
+            path = urlparse(path).path
+
+        if not path.startswith("/"):
+            path = f"/{path}"
+
+        # 使用 download_and_get_url 自动处理 R2/本地 URL
+        dl_service = self._get_dl()
+        return await dl_service.download_and_get_url(path, self.token, media_type)
+>>>>>>> Stashed changes:app/services/grok/processors/base.py
 
 
 __all__ = [
