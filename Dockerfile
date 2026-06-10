@@ -1,39 +1,77 @@
-FROM python:3.13-slim
+# ── Builder ───────────────────────────────────────────────────────────────────
+FROM python:3.13-alpine AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv
+
+ENV PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
+
+# Rust/Cargo are required to compile curl-cffi wheels on musl/Alpine.
+# If upstream ever ships musl wheels, remove cargo + rust to speed up builds.
+RUN apk add --no-cache \
+    ca-certificates \
+    build-base \
+    linux-headers \
+    libffi-dev \
+    openssl-dev \
+    curl-dev \
+    cargo \
+    rust
+
+WORKDIR /app
+
+# Pin uv to a minor version for reproducible builds.
+# Bump manually when you want to pick up a newer uv release.
+COPY --from=ghcr.io/astral-sh/uv:0.6 /uv /uvx /bin/
+
+COPY pyproject.toml uv.lock ./
+
+RUN uv sync --frozen --no-dev --no-install-project \
+    && find /opt/venv -type d \
+         \( -name "__pycache__" -o -name "tests" -o -name "test" -o -name "testing" \) \
+         -prune -exec rm -rf {} + \
+    && find /opt/venv -type f -name "*.pyc" -delete \
+    && find /opt/venv -type f -name "*.so" -exec strip --strip-unneeded {} + 2>/dev/null; true \
+    && rm -rf /root/.cache /tmp/uv-cache
+
+# ── Runtime ───────────────────────────────────────────────────────────────────
+FROM python:3.13-alpine
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TZ=Asia/Shanghai \
-    # 把 uv 包安装到系统 Python 环境
-    UV_PROJECT_ENVIRONMENT=/opt/venv
+    VIRTUAL_ENV=/opt/venv \
+    SERVER_HOST=0.0.0.0 \
+    SERVER_PORT=8000 \
+    SERVER_WORKERS=1
 
-# 确保 uv 的 bin 目录
-ENV PATH="$UV_PROJECT_ENVIRONMENT/bin:$PATH"
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends tzdata ca-certificates dos2unix \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    tzdata \
+    ca-certificates \
+    libffi \
+    openssl \
+    libgcc \
+    libstdc++ \
+    libcurl
 
 WORKDIR /app
 
-# 安装 uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=builder /opt/venv /opt/venv
 
-COPY pyproject.toml uv.lock ./
-
-RUN uv sync --no-dev --no-install-project
-
-COPY config.defaults.toml ./
+COPY pyproject.toml config.defaults.toml ./
 COPY app ./app
-COPY main.py ./
 COPY scripts ./scripts
 
-# 转换脚本换行符并设置权限
-RUN dos2unix /app/scripts/*.sh \
-    && mkdir -p /app/data /app/data/tmp /app/logs \
+RUN mkdir -p /app/data /app/logs \
     && chmod +x /app/scripts/entrypoint.sh /app/scripts/init_storage.sh
 
 EXPOSE 8000
 
-ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD ["sh", "-c", "wget -qO /dev/null http://127.0.0.1:${SERVER_PORT}/health || exit 1"]
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+CMD ["sh", "-c", "exec granian --interface asgi --host ${SERVER_HOST} --port ${SERVER_PORT} --workers ${SERVER_WORKERS} app.main:app"]
