@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Public default license placeholder, not a deployed credential"
+regexTarget = "secret"
+regexes = ['''default_unsafe_secret_key_grok2api''']
